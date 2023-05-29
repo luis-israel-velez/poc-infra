@@ -20,7 +20,7 @@ locals {
   name   = "education-eks-${random_string.suffix.result}"  
   cluster_version = "1.25"
   region = "us-east-2"
-  instances = "t2.large"
+  instances = "t2.small"
 
   vpc_cidr = "10.0.0.0/16"
   azs      = slice(data.aws_availability_zones.available.names, 0, 3)
@@ -38,7 +38,7 @@ locals {
 module "vpc" {
 
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.0"
+  version = "~> 4.0"
 
   name = "vpc-${local.name}"
   cidr = local.vpc_cidr
@@ -46,15 +46,10 @@ module "vpc" {
   azs             = local.azs
   private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
   public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
-  intra_subnets   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 52)]
 
   enable_nat_gateway   = true
-  single_nat_gateway   = true
-  enable_dns_hostnames = true
+  enable_vpn_gateway = true
 
-  enable_flow_log                      = true
-  create_flow_log_cloudwatch_iam_role  = true
-  create_flow_log_cloudwatch_log_group = true
 
   public_subnet_tags = {
     #"kubernetes.io/cluster/${local.cluster_name}" = "shared"
@@ -142,10 +137,10 @@ module "eks" {
   eks_managed_node_groups = {
     worker_group = {
       name           = "worker-group"
-      min_size       = 2
-      max_size       = 8
-      desired_size   = 6
-      instance_types = ["t2.large"]
+      min_size       = 1
+      max_size       = 5
+      desired_size   = 2
+      instance_types = ["t2.small"]
       capacity_type  = "ON_DEMAND"
 
       bootstrap_extra_args = "--kubelet-extra-args '--node-labels=geeiq/node-type=worker'"
@@ -174,7 +169,7 @@ module "eks" {
 
 
 resource "aws_s3_bucket" "example" {
-  bucket = "prototype-dataplatform-s32"
+  bucket = "prototype-dataplatform-s3"
   force_destroy = true
 
   tags = {
